@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="fr" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>SSK-POS Mobile V7 — Télécommande</title>
+<!-- Librairie scan caméra mobile (CDN officiel) -->
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+  :root{--bg:#0c0e14;--panel:#141722;--card:#1c2030;--border:#2a3147;--primary:#ff7700;--gold:#FFD700;--success:#10b981;--danger:#ef4444;--info:#0ea5e9;--text:#f8fafc;--muted:#94a3b8;--radius:10px}
+  *{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-tap-highlight-color:transparent}
+  body{background:var(--bg);color:var(--text);min-height:100vh;padding:12px 12px 130px}
+  h1{color:var(--gold);text-align:center;font-size:1.15rem;margin-bottom:4px;text-shadow:0 0 12px rgba(255,215,0,.4)}
+  .subtitle{text-align:center;font-size:.72rem;color:var(--muted);margin-bottom:12px}
+  .tabs{display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;padding-bottom:4px}
+  .tab{background:var(--panel);border:1px solid var(--border);color:var(--text);padding:8px 14px;border-radius:20px;font-size:.8rem;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0}
+  .tab.active{background:var(--primary);border-color:var(--primary);color:#fff}
+  .status{text-align:center;padding:8px;background:rgba(16,185,129,.1);border:1px solid var(--success);color:var(--success);border-radius:8px;font-size:.78rem;font-weight:700;margin-bottom:12px;transition:all .3s}
+  .status.error{background:rgba(239,68,68,.1);border-color:var(--danger);color:var(--danger)}
+  .status.info{background:rgba(14,165,233,.1);border-color:var(--info);color:var(--info)}
+  .search-bar{display:flex;gap:8px;margin-bottom:12px}
+  input[type=text],input[type=number],select{flex:1;background:#0f121a;border:1px solid var(--border);color:var(--text);padding:12px;border-radius:var(--radius);font-size:1rem;outline:none}
+  input:focus,select:focus{border-color:var(--primary);box-shadow:0 0 0 2px rgba(255,119,0,.25)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:14px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:10px;cursor:pointer;transition:transform .1s,border-color .2s;position:relative}
+  .card:active{transform:scale(.96);border-color:var(--primary)}
+  .card-name{font-weight:800;font-size:.85rem;margin-bottom:4px;line-height:1.2}
+  .card-code{font-size:.68rem;color:var(--muted);margin-bottom:6px}
+  .card-price{font-weight:900;color:var(--primary);font-size:1.05rem}
+  .card-stock{font-size:.7rem;color:var(--muted);margin-top:2px}
+  .card-stock.low{color:var(--danger);font-weight:800}
+  .pending-badge{position:absolute;top:-6px;right:-6px;background:var(--danger);color:#fff;font-size:.65rem;font-weight:900;padding:2px 7px;border-radius:12px;box-shadow:0 2px 6px rgba(239,68,68,.5)}
+  
+  .bottom-bar{position:fixed;bottom:0;left:0;right:0;background:var(--panel);border-top:2px solid var(--border);padding:10px 12px;display:grid;grid-template-columns:1fr 1fr;gap:10px;box-shadow:0 -4px 20px rgba(0,0,0,.5);z-index:999}
+  .big-btn{border:none;padding:18px 8px;border-radius:12px;font-weight:900;font-size:.95rem;cursor:pointer;color:#fff;display:flex;flex-direction:column;align-items:center;gap:4px;transition:transform .1s;line-height:1.1}
+  .big-btn:active{transform:scale(.96)}
+  .big-btn .icon{font-size:1.5rem;line-height:1}
+  .big-btn.send{background:linear-gradient(135deg,#10b981,#059669);box-shadow:0 4px 20px rgba(16,185,129,.4)}
+  .big-btn.pull{background:linear-gradient(135deg,#0ea5e9,#0369a1);box-shadow:0 4px 20px rgba(14,165,233,.4)}
+  .big-btn:disabled{opacity:.5;cursor:not-allowed}
+  .pending-info{text-align:center;padding:6px;background:rgba(239,68,68,.08);border:1px solid var(--danger);border-radius:6px;color:var(--danger);font-size:.72rem;font-weight:700;margin-bottom:10px}
+  
+  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.85);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;padding:16px;z-index:2000;overflow-y:auto}
+  .modal-bg.active{display:flex}
+  .modal{background:var(--panel);border:2px solid var(--gold);border-radius:16px;padding:22px;width:100%;max-width:440px;box-shadow:0 0 50px rgba(255,215,0,.25);max-height:92vh;overflow-y:auto}
+  .modal h2{color:var(--gold);font-size:1.1rem;margin-bottom:8px;text-align:center}
+  .modal .form-group{margin-bottom:10px}
+  .modal label{display:block;font-size:.78rem;color:var(--muted);font-weight:700;margin-bottom:4px}
+  .modal input,.modal select,.modal textarea{width:100%;padding:10px;background:#0f121a;border:1px solid var(--border);color:var(--text);border-radius:8px;font-size:.95rem}
+  .qty-btns{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+  .qty-btns button{background:var(--card);border:1px solid var(--border);color:var(--text);padding:14px;font-size:1.1rem;font-weight:900;border-radius:10px;cursor:pointer}
+  .qty-btns button:active{background:var(--primary);border-color:var(--primary)}
+  .modal-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}
+  .modal-actions button{padding:14px;font-size:.95rem;font-weight:900;border-radius:10px;border:none;cursor:pointer}
+  .btn-cancel{background:var(--card);color:var(--text);border:1px solid var(--border)}
+  .btn-confirm{background:linear-gradient(135deg,#10b981,#059669);color:#fff;box-shadow:0 4px 16px rgba(16,185,129,.4)}
+  .btn-confirm:active{transform:scale(.97)}
+  .article-line{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:.85rem}
+  .empty{text-align:center;padding:40px 20px;color:var(--muted);font-size:.9rem}
+
+  /* SCANNER CAMERA */
+  .scan-row{display:flex;gap:8px;align-items:stretch;margin-bottom:12px}
+  .scan-btn{background:linear-gradient(135deg,#ff7700,#e06600);border:none;color:#fff;font-weight:900;padding:0 16px;border-radius:var(--radius);font-size:1.2rem;cursor:pointer;box-shadow:0 4px 16px rgba(255,119,0,.4);flex-shrink:0}
+  #qr-reader{width:100%;border:none !important;background:transparent}
+  #qr-reader video{width:100% !important;border-radius:8px}
+  #qr-reader__scan_region{border-radius:8px;overflow:hidden}
+  #qr-reader__dashboard_section_csr{background:transparent !important}
+  #qr-reader__dashboard_section_csr button{background:var(--primary) !important;color:#fff !important;border:none !important;border-radius:8px !important;padding:8px 14px !important;font-weight:800 !important;margin-top:6px !important}
+  .scan-wrap{display:none;background:#000;border-radius:12px;overflow:hidden;margin-bottom:12px;position:relative;border:2px solid var(--gold)}
+  .scan-wrap.active{display:block}
+  .scan-close{position:absolute;top:8px;right:8px;background:var(--danger);color:#fff;border:none;width:34px;height:34px;border-radius:50%;font-weight:900;font-size:1rem;cursor:pointer;z-index:10;box-shadow:0 2px 8px rgba(0,0,0,.5)}
+
+  /* SOCIAL SHARE BUTTONS */
+  .share-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:10px}
+  .share-btn{border:none;padding:12px 4px;border-radius:10px;font-weight:900;font-size:.7rem;cursor:pointer;color:#fff;display:flex;flex-direction:column;align-items:center;gap:4px;transition:transform .1s;line-height:1.1}
+  .share-btn:active{transform:scale(.94)}
+  .share-btn .ic{font-size:1.4rem;line-height:1}
+  .share-wa{background:linear-gradient(135deg,#25D366,#128C7E);box-shadow:0 3px 12px rgba(37,211,102,.35)}
+  .share-ms{background:linear-gradient(135deg,#0084FF,#0068d1);box-shadow:0 3px 12px rgba(0,132,255,.35)}
+  .share-vb{background:linear-gradient(135deg,#7360F2,#5a48c9);box-shadow:0 3px 12px rgba(115,96,242,.35)}
+  .share-tg{background:linear-gradient(135deg,#0088cc,#006699);box-shadow:0 3px 12px rgba(0,136,204,.35)}
+
+  .save-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+</style>
+</head>
+<body>
+
+  <h1>📱 SSK-POS Mobile V7</h1>
+  <div class="subtitle">Télécommande & Boutique</div>
+
+  <div class="status" id="status">Recherche du fichier LIVE...</div>
+  <div id="pending-info" class="pending-info" style="display:none"></div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchView('stock', this)">📦 Stock</button>
+    <button class="tab" onclick="switchView('achat', this)">🛒 Nouvel Achat</button>
+    <button class="tab" onclick="switchView('facture', this)">💳 Facture Client</button>
+  </div>
+
+  <!-- VIEW STOCK -->
+  <div id="view-stock" class="view-content">
+    <div class="search-bar">
+      <input type="text" id="search" placeholder="🔍 Rechercher un article..." oninput="filterProducts()">
+    </div>
+    <div class="grid" id="products"></div>
+  </div>
+
+  <!-- VIEW ACHAT -->
+  <div id="view-achat" class="view-content" style="display:none">
+    <div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px">
+      <h3 style="color:var(--gold);font-size:1rem;margin-bottom:10px">🛒 Nouvel Achat (Camion / Fournisseur)</h3>
+      <div class="form-group"><label>Désignation *</label><input type="text" id="a-designation" placeholder="Ex: Lait Candia 1L"></div>
+      
+      <!-- SCAN BARCODE ACHAT -->
+      <div class="form-group">
+        <label>Code-barres (optionnel)</label>
+        <div class="scan-row">
+          <input type="text" id="a-code" placeholder="EAN-13 ou code interne">
+          <button class="scan-btn" onclick="openScanner('a-code')" title="Scanner avec caméra">📷</button>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div class="form-group"><label>Qté *</label><input type="number" id="a-qte" value="1" min="1"></div>
+        <div class="form-group"><label>Catégorie</label><input type="text" id="a-categorie" placeholder="Alimentation"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+        <div class="form-group"><label>P. Achat HT *</label><input type="number" id="a-pachat" value="0" step="0.5"></div>
+        <div class="form-group"><label>P. Vente TTC *</label><input type="number" id="a-pvente" value="0" step="0.5"></div>
+        <div class="form-group"><label>P. Gros TTC</label><input type="number" id="a-pgros" value="0" step="0.5"></div>
+      </div>
+      <div class="form-group"><label>TVA (%)</label><input type="number" id="a-tva" value="19" step="0.5"></div>
+      <div class="form-group"><label>Fournisseur</label><input type="text" id="a-fournisseur" placeholder="Ex: Grossiste El Eulma"></div>
+      <button class="btn-confirm" style="width:100%;padding:14px;margin-top:8px" onclick="addAchatToList()">➕ Ajouter à la liste</button>
+    </div>
+
+    <h3 style="color:var(--text);font-size:.9rem;margin-bottom:8px" id="achat-list-title" style="display:none">Articles à envoyer</h3>
+    <div id="achat-list" style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:10px"></div>
+    <button class="big-btn send" style="width:100%;padding:16px;font-size:1rem" onclick="envoyerAchats()">📤 Envoyer Achats au Magasin</button>
+  </div>
+
+  <!-- VIEW FACTURE -->
+  <div id="view-facture" class="view-content" style="display:none">
+    <div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px">
+      <h3 style="color:var(--gold);font-size:1rem;margin-bottom:10px">💳 Nouvelle Facture Client</h3>
+      <div class="form-group"><label>Client</label>
+        <select id="f-client-select"></select>
+      </div>
+      <div class="form-group"><label>Ou nouveau client</label><input type="text" id="f-client-new" placeholder="Nom du nouveau client (optionnel)"></div>
+      <div class="form-group"><label>Téléphone client</label><input type="text" id="f-client-phone" placeholder="0550..."></div>
+    </div>
+
+    <div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px">
+      <h3 style="color:var(--text);font-size:.9rem;margin-bottom:8px">Articles</h3>
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        <select id="f-prod-select" style="flex:1"></select>
+        <button class="btn-confirm" style="padding:0 12px" onclick="addFactureLine()">+</button>
+      </div>
+      <div id="facture-lines"></div>
+      <div style="display:flex;justify-content:space-between;padding-top:10px;font-weight:900;font-size:1.1rem;color:var(--primary)">
+        <span>TOTAL:</span><span id="facture-total">0.00 DZD</span>
+      </div>
+    </div>
+
+    <!-- BOUTONS PARTAGE SOCIAUX -->
+    <div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px">
+      <div style="font-size:.8rem;color:var(--muted);font-weight:700;margin-bottom:8px;text-align:center">📤 Envoyer la facture au client</div>
+      <div class="share-grid">
+        <button class="share-btn share-wa" onclick="sendFactureVia('whatsapp')">
+          <span class="ic">💬</span><span>WhatsApp</span>
+        </button>
+        <button class="share-btn share-ms" onclick="sendFactureVia('messenger')">
+          <span class="ic">💌</span><span>Messenger</span>
+        </button>
+        <button class="share-btn share-vb" onclick="sendFactureVia('viber')">
+          <span class="ic">📞</span><span>Viber</span>
+        </button>
+        <button class="share-btn share-tg" onclick="sendFactureVia('telegram')">
+          <span class="ic">✈️</span><span>Telegram</span>
+        </button>
+      </div>
+
+      <div class="save-row">
+        <button class="big-btn" style="background:var(--card);border:1px solid var(--border)" onclick="saveFacture()">💾 Enregistrer</button>
+        <button class="big-btn send" onclick="saveAndExportFacture()">📤 Envoyer & Sauvegarder</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- BARRE FIXE BAS (STOCK UNIQUEMENT) -->
+  <div class="bottom-bar" id="bottom-bar-stock">
+    <button class="big-btn send" id="btn-send" onclick="sendToShop()">
+      <span class="icon">📤</span><span>Envoyer au Magasin</span><span style="font-size:.7rem;opacity:.85">Sync Stock</span>
+    </button>
+    <button class="big-btn pull" id="btn-pull" onclick="pullFromShop()">
+      <span class="icon">🔄</span><span>Mettre à jour Stock</span><span style="font-size:.7rem;opacity:.85">Depuis Magasin</span>
+    </button>
+  </div>
+
+  <!-- MODAL QUANTITÉ STOCK -->
+  <div class="modal-bg" id="qty-modal">
+    <div class="modal">
+      <h2>📦 شحال شريت من العلمة؟</h2>
+      <div style="text-align:center;font-size:.95rem;font-weight:700;margin-bottom:4px" id="qty-prod-name">—</div>
+      <div style="text-align:center;font-size:.75rem;color:var(--muted);margin-bottom:14px" id="qty-prod-stock">Stock: —</div>
+      <div class="qty-btns"><button onclick="setQty(1)">+1</button><button onclick="setQty(6)">+6</button><button onclick="setQty(12)">+12</button></div>
+      <div style="margin-bottom:12px"><input type="number" id="qty-input" min="1" value="1" style="width:100%;font-size:1.3rem;text-align:center;font-weight:900;padding:12px;background:#0f121a;border:1px solid var(--border);color:var(--text);border-radius:8px"></div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeQtyModal()">❌ Annuler</button>
+        <button class="btn-confirm" onclick="confirmQty()">✅ تأكيد</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL SCANNER CAMERA (au centre de l'écran, non bloquant) -->
+  <div class="modal-bg" id="scan-modal">
+    <div class="modal" style="max-width:420px;padding:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <h2 style="margin:0;color:var(--gold)">📷 Scanner le code-barres</h2>
+        <button onclick="closeScanner()" style="background:var(--danger);color:#fff;border:none;width:32px;height:32px;border-radius:50%;font-weight:900;cursor:pointer;font-size:1rem">✕</button>
+      </div>
+      <div id="qr-reader" style="width:100%;border-radius:8px;overflow:hidden"></div>
+      <div style="text-align:center;font-size:.78rem;color:var(--muted);margin-top:10px">Placez le code-barres dans le cadre</div>
+    </div>
+  </div>
+
+  <!-- INPUT FILE CACHÉ POUR LA MISE À JOUR MANUELLE -->
+  <input type="file" id="liveFileInput" accept=".json" style="display:none">
+
+<script>
+/* ============================================================
+   SSK-POS MOBILE V7 — Sync via fichiers dans SSK-BACKUP/
+   - LIVE : SSK-POS-LIVE.json (stock + patch)
+   - ACHATS-MOBILE : SSK-ACHATS-MOBILE.json (nouveaux articles)
+   - FACTURES-MOBILE : SSK-FACTURES-MOBILE.json (factures)
+============================================================ */
+
+const LIVE_PATH = '../SSK-BACKUP/SSK-POS-LIVE.json';
+const ACHATS_PATH = '../SSK-BACKUP/SSK-ACHATS-MOBILE.json';
+const FACTURES_PATH = '../SSK-BACKUP/SSK-FACTURES-MOBILE.json';
+const STORAGE_KEY = 'ssk_mobile_v6_pending';
+const PRODUCTS_KEY = 'ssk_mobile_v6_products';
+const ACHATS_LIST_KEY = 'ssk_mobile_v6_achats_list';
+const FACTURE_LINES_KEY = 'ssk_mobile_v6_facture_lines';
+const CUSTOMERS_KEY = 'ssk_mobile_v6_customers';
+
+let products = [];
+let customers = [];
+let pendingUpdates = [];
+let achatsList = [];
+let factureLines = [];
+let currentSearch = '';
+let currentProduct = null;
+
+/* ============================================================
+   SCANNER HTML5-QRCODE (FIX: vérifie la lib + fallback)
+============================================================ */
+let html5QrCode = null;
+let scanTargetFieldId = null;
+let scannerRunning = false;
+
+async function openScanner(targetFieldId) {
+  scanTargetFieldId = targetFieldId;
+  document.getElementById('scan-modal').classList.add('active');
+
+  // Vérifier que la librairie est bien chargée
+  if (typeof Html5Qrcode === 'undefined') {
+    // Tentative de rechargement dynamique
+    try {
+      await loadScript('https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js');
+    } catch (e) {
+      alert("❌ Librairie scanner introuvable. Vérifiez votre connexion Internet.");
+      closeScanner();
+      return;
+    }
+  }
+
+  if (typeof Html5Qrcode === 'undefined') {
+    alert("❌ Librairie html5-qrcode non chargée. Actualisez la page.");
+    closeScanner();
+    return;
+  }
+
+  try {
+    if (!html5QrCode) {
+      html5QrCode = new Html5Qrcode("qr-reader", { verbose: false });
+    }
+
+    const config = {
+      fps: 10,
+      qrbox: { width: 250, height: 150 },
+      aspectRatio: 1.0
+    };
+
+    await html5QrCode.start(
+      { facingMode: "environment" },
+      config,
+      (decodedText) => {
+        const field = document.getElementById(scanTargetFieldId);
+        if (field) {
+          field.value = decodedText;
+          field.dispatchEvent(new Event('input'));
+        }
+        setStatus('✅ Code scanné: ' + decodedText, 'ok');
+        closeScanner();
+      },
+      (errorMessage) => { /* ignore erreurs intermédiaires */ }
+    );
+    scannerRunning = true;
+  } catch (err) {
+    console.error("Scanner error:", err);
+    alert("❌ Impossible d'ouvrir la caméra:\n" + (err.message || err));
+    closeScanner();
+  }
+}
+
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = resolve;
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+function closeScanner() {
+  document.getElementById('scan-modal').classList.remove('active');
+  if (html5QrCode && scannerRunning) {
+    html5QrCode.stop().then(() => {
+      scannerRunning = false;
+      const qr = document.getElementById('qr-reader');
+      if (qr) qr.innerHTML = '';
+    }).catch((err) => {
+      console.warn("Stop scanner error:", err);
+      scannerRunning = false;
+      const qr = document.getElementById('qr-reader');
+      if (qr) qr.innerHTML = '';
+    });
+  } else {
+    const qr = document.getElementById('qr-reader');
+    if (qr) qr.innerHTML = '';
+  }
+}
+
+/* ---------- LOCAL STORAGE ---------- */
+function loadLocal() {
+  try {
+    products = JSON.parse(localStorage.getItem(PRODUCTS_KEY) || '[]');
+    customers = JSON.parse(localStorage.getItem(CUSTOMERS_KEY) || '[]');
+    pendingUpdates = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    achatsList = JSON.parse(localStorage.getItem(ACHATS_LIST_KEY) || '[]');
+    factureLines = JSON.parse(localStorage.getItem(FACTURE_LINES_KEY) || '[]');
+  } catch(e) { products=[]; customers=[]; pendingUpdates=[]; achatsList=[]; factureLines=[]; }
+}
+function saveLocal() {
+  localStorage.setItem(PRODUCTS_KEY, JSON.stringify(products));
+  localStorage.setItem(CUSTOMERS_KEY, JSON.stringify(customers));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(pendingUpdates));
+  localStorage.setItem(ACHATS_LIST_KEY, JSON.stringify(achatsList));
+  localStorage.setItem(FACTURE_LINES_KEY, JSON.stringify(factureLines));
+}
+
+/* ---------- CHARGEMENT LIVE VIA FETCH ---------- */
+async function loadLiveFile() {
+  try {
+    const resp = await fetch(LIVE_PATH + '?t=' + Date.now());
+    if (!resp.ok) throw new Error('Fichier LIVE introuvable');
+    const data = await resp.json();
+    if (data.products && Array.isArray(data.products)) {
+      products = data.products.map(p => ({ code: p.code, name: p.name, sellPrice: parseFloat(p.sellPrice)||0, stock: parseFloat(p.stock)||0 }));
+    }
+    if (data.customers && Array.isArray(data.customers)) {
+      customers = data.customers;
+    }
+    saveLocal();
+    setStatus('🟢 ' + products.length + ' articles synchronisés', 'ok');
+    renderProducts();
+    renderFactureClientSelect();
+    return data;
+  } catch (e) {
+    setStatus('⚠️ Fichier LIVE inaccessible — utilisez "🔄 Mettre à jour"', 'error');
+    return null;
+  }
+}
+
+function setStatus(msg, type) {
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.className = 'status';
+  if (type === 'error') el.classList.add('error');
+  if (type === 'info') el.classList.add('info');
+}
+
+/* ---------- NAVIGATION ENTRE VUES ---------- */
+function switchView(name, btn) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  ['stock','achat','facture'].forEach(v => {
+    document.getElementById('view-' + v).style.display = (v === name) ? 'block' : 'none';
+  });
+  document.getElementById('bottom-bar-stock').style.display = (name === 'stock') ? 'grid' : 'none';
+  if (name === 'facture') renderFactureClientSelect();
+  if (name === 'achat') renderAchatList();
+  if (name === 'facture') renderFactureLines();
+}
+
+/* ---------- STOCK ---------- */
+function renderProducts() {
+  const grid = document.getElementById('products');
+  const filtered = currentSearch ? products.filter(p => p.name.toLowerCase().includes(currentSearch) || p.code.includes(currentSearch)) : products;
+  if (filtered.length === 0) { grid.innerHTML = '<div class="empty">Aucun article trouvé.<br>Cliquez sur "🔄 Mettre à jour" en bas.</div>'; return; }
+  grid.innerHTML = '';
+  filtered.forEach(p => {
+    const pending = pendingUpdates.find(u => u.code === p.code);
+    const pendingQty = pending ? pending.addQty : 0;
+    const totalStock = p.stock + pendingQty;
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.onclick = () => openQtyModal(p);
+    card.innerHTML = `
+      ${pendingQty > 0 ? `<div class="pending-badge">+${pendingQty}</div>` : ''}
+      <div class="card-name">${escapeHtml(p.name)}</div>
+      <div class="card-code">${escapeHtml(p.code)}</div>
+      <div class="card-price">${p.sellPrice.toFixed(2)} DZD</div>
+      <div class="card-stock ${totalStock <= 5 ? 'low' : ''}">Stock: ${totalStock}</div>`;
+    grid.appendChild(card);
+  });
+  updatePendingInfo();
+}
+
+function updatePendingInfo() {
+  const el = document.getElementById('pending-info');
+  if (pendingUpdates.length === 0) { el.style.display = 'none'; return; }
+  const total = pendingUpdates.reduce((a, u) => a + u.addQty, 0);
+  el.style.display = 'block';
+  el.textContent = `⏳ ${pendingUpdates.length} article(s) en attente — Total: +${total} unité(s)`;
+}
+
+function escapeHtml(s) { return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function filterProducts() { currentSearch = document.getElementById('search').value.toLowerCase().trim(); renderProducts(); }
+
+/* ---------- MODAL QTY ---------- */
+function openQtyModal(p) {
+  currentProduct = p;
+  document.getElementById('qty-prod-name').textContent = p.name;
+  document.getElementById('qty-prod-stock').textContent = 'Stock: ' + p.stock;
+  document.getElementById('qty-input').value = 1;
+  document.getElementById('qty-modal').classList.add('active');
+}
+function closeQtyModal() { document.getElementById('qty-modal').classList.remove('active'); currentProduct = null; }
+function setQty(n) { document.getElementById('qty-input').value = n; }
+function confirmQty() {
+  if (!currentProduct) return;
+  const qty = parseInt(document.getElementById('qty-input').value, 10);
+  if (!qty || qty <= 0) { alert('⚠️ Quantité invalide'); return; }
+  const existing = pendingUpdates.find(u => u.code === currentProduct.code);
+  if (existing) { existing.addQty += qty; existing.date = new Date().toISOString(); }
+  else { pendingUpdates.push({ code: currentProduct.code, name: currentProduct.name, addQty: qty, date: new Date().toISOString() }); }
+  saveLocal(); closeQtyModal(); renderProducts();
+  setStatus(`✅ +${qty} ${currentProduct.name} ajouté`, 'ok');
+}
+
+/* ---------- ENVOI STOCK AU MAGASIN ---------- */
+async function sendToShop() {
+  if (pendingUpdates.length === 0) { alert('Aucune modification en attente.'); return; }
+  const btn = document.getElementById('btn-send'); btn.disabled = true;
+  try {
+    const patch = { version: 'SSK-POS-V7', source: 'MOBILE', sentAt: new Date().toISOString(), updates: pendingUpdates.map(u => ({ code: u.code, name: u.name, addQty: u.addQty })) };
+    let liveData = { products: [], lastUpdate: null, patch: null };
+    try { const resp = await fetch(LIVE_PATH + '?t=' + Date.now()); if (resp.ok) liveData = await resp.json(); } catch (e) {}
+    liveData.patch = patch;
+    liveData.lastUpdate = new Date().toISOString();
+    const blob = new Blob([JSON.stringify(liveData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'SSK-POS-LIVE.json'; a.click(); URL.revokeObjectURL(url);
+    pendingUpdates = []; saveLocal(); renderProducts();
+    setStatus('✅ Envoyé ! SyncTrayzor transmettra au PC.', 'ok');
+    setTimeout(() => setStatus('🟢 En attente de confirmation...', 'info'), 3000);
+  } catch (e) { setStatus('❌ Erreur: ' + e.message, 'error'); }
+  finally { btn.disabled = false; }
+}
+
+/* ---------- PULL FROM SHOP ---------- */
+function pullFromShop() {
+  document.getElementById('liveFileInput').click();
+}
+
+document.getElementById('liveFileInput').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(evt) {
+    try {
+      const data = JSON.parse(evt.target.result);
+      let loadedProducts = null;
+      let loadedCustomers = null;
+      
+      if (data.products && Array.isArray(data.products)) {
+        loadedProducts = data.products;
+        if (data.customers) loadedCustomers = data.customers;
+      } else if (data.articles && Array.isArray(data.articles)) {
+        loadedProducts = data.articles.map(a => ({
+          code: a.code || a.barcode || '',
+          name: a.name || a.designation || a.nom || '',
+          sellPrice: parseFloat(a.sellPrice || a.prix || a.p_vente || 0),
+          stock: parseFloat(a.stock || a.qte || 0)
+        }));
+      } else if (Array.isArray(data)) {
+        loadedProducts = data;
+      }
+      
+      if (!loadedProducts || loadedProducts.length === 0) {
+        setStatus('⚠️ Fichier invalide — aucun article trouvé', 'error');
+        return;
+      }
+      
+      products = loadedProducts.map(p => ({
+        code: p.code || p.barcode || '',
+        name: p.name || p.designation || p.nom || 'Article',
+        sellPrice: parseFloat(p.sellPrice || p.prix || p.p_vente || 0),
+        stock: parseFloat(p.stock || p.qte || 0)
+      }));
+      
+      if (loadedCustomers) customers = loadedCustomers;
+      
+      saveLocal();
+      renderProducts();
+      renderFactureClientSelect();
+      setStatus(`✅ Stock mis à jour: ${products.length} articles`, 'ok');
+      e.target.value = '';
+    } catch (err) {
+      console.error(err);
+      setStatus('❌ Erreur lecture fichier: ' + err.message, 'error');
+      e.target.value = '';
+    }
+  };
+  reader.readAsText(file);
+});
+
+/* ---------- ACHAT CAMION ---------- */
+function addAchatToList() {
+  const designation = document.getElementById('a-designation').value.trim();
+  if (!designation) { alert('⚠️ Désignation requise'); return; }
+  const achat = {
+    designation,
+    code: document.getElementById('a-code').value.trim() || null,
+    qte: parseFloat(document.getElementById('a-qte').value) || 1,
+    p_achat: parseFloat(document.getElementById('a-pachat').value) || 0,
+    p_vente: parseFloat(document.getElementById('a-pvente').value) || 0,
+    p_gros: parseFloat(document.getElementById('a-pgros').value) || 0,
+    tva: parseFloat(document.getElementById('a-tva').value) || 0,
+    categorie: document.getElementById('a-categorie').value.trim() || 'Général',
+    fournisseur: document.getElementById('a-fournisseur').value.trim() || 'Grossiste'
+  };
+  achatsList.push(achat);
+  saveLocal();
+  document.getElementById('a-designation').value = '';
+  document.getElementById('a-code').value = '';
+  document.getElementById('a-qte').value = 1;
+  renderAchatList();
+}
+
+function renderAchatList() {
+  const box = document.getElementById('achat-list');
+  const title = document.getElementById('achat-list-title');
+  if (achatsList.length === 0) { box.innerHTML = '<div class="empty" style="padding:14px;font-size:.8rem">Aucun article dans la liste</div>'; title.style.display = 'none'; return; }
+  title.style.display = 'block';
+  let html = '';
+  achatsList.forEach((a, i) => {
+    html += `<div class="article-line"><span><strong>${escapeHtml(a.designation)}</strong> ×${a.qte} — ${a.p_achat.toFixed(2)}→${a.p_vente.toFixed(2)} DZD</span><button style="background:var(--danger);border:none;color:#fff;border-radius:4px;padding:2px 8px;cursor:pointer" onclick="removeAchat(${i})">✕</button></div>`;
+  });
+  box.innerHTML = html;
+}
+
+function removeAchat(i) { achatsList.splice(i, 1); saveLocal(); renderAchatList(); }
+
+async function envoyerAchats() {
+  if (achatsList.length === 0) { alert('Aucun article à envoyer.'); return; }
+  const fournisseur = achatsList[0].fournisseur || 'Grossiste';
+  const payload = { version: 'SSK-POS-V7-ACHATS', sentAt: new Date().toISOString(), fournisseur, articles: achatsList.map(a => ({ designation: a.designation, code: a.code, qte: a.qte, p_achat: a.p_achat, p_vente: a.p_vente, p_gros: a.p_gros, tva: a.tva, categorie: a.categorie })) };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'SSK-ACHATS-MOBILE.json'; a.click(); URL.revokeObjectURL(url);
+  achatsList = [];
+  saveLocal();
+  renderAchatList();
+  setStatus('✅ Achats envoyés ! SyncTrayzor transmettra.', 'ok');
+  setTimeout(() => setStatus('🟢 En attente...', 'info'), 3000);
+}
+
+/* ---------- FACTURES ---------- */
+function renderFactureClientSelect() {
+  const sel = document.getElementById('f-client-select');
+  sel.innerHTML = '<option value="">-- Nouveau client --</option>';
+  customers.forEach(c => { const opt = document.createElement('option'); opt.value = c.id; opt.innerText = c.name + (c.phone ? ' (' + c.phone + ')' : ''); sel.appendChild(opt); });
+  const prodSel = document.getElementById('f-prod-select');
+  prodSel.innerHTML = '<option value="">-- Choisir article --</option>';
+  products.forEach(p => { const opt = document.createElement('option'); opt.value = p.code; opt.innerText = `${p.name} — ${p.sellPrice.toFixed(2)} DZD`; prodSel.appendChild(opt); });
+}
+
+function addFactureLine() {
+  const code = document.getElementById('f-prod-select').value;
+  if (!code) return;
+  const prod = products.find(p => p.code === code);
+  if (!prod) return;
+  const existing = factureLines.find(l => l.code === code);
+  if (existing) existing.qty += 1;
+  else factureLines.push({ id: prod.code, code: prod.code, name: prod.name, sellPrice: prod.sellPrice, qty: 1 });
+  saveLocal();
+  renderFactureLines();
+}
+
+function renderFactureLines() {
+  const box = document.getElementById('facture-lines');
+  if (factureLines.length === 0) { box.innerHTML = '<div class="empty" style="padding:10px;font-size:.8rem">Aucun article</div>'; document.getElementById('facture-total').textContent = '0.00 DZD'; return; }
+  let html = '';
+  let total = 0;
+  factureLines.forEach((l, i) => {
+    total += l.sellPrice * l.qty;
+    html += `<div class="article-line">
+      <span style="flex:1"><strong>${escapeHtml(l.name)}</strong><br><input type="number" value="${l.sellPrice}" style="width:80px;padding:4px;font-size:.8rem;background:#0f121a;border:1px solid var(--border);color:var(--text);border-radius:4px" onchange="updateFacturePrice(${i}, this.value)"> × <input type="number" value="${l.qty}" min="1" style="width:50px;padding:4px;font-size:.8rem;background:#0f121a;border:1px solid var(--border);color:var(--text);border-radius:4px" onchange="updateFactureQty(${i}, this.value)"></span>
+      <span style="font-weight:800;color:var(--primary)">${(l.sellPrice * l.qty).toFixed(2)}</span>
+      <button style="background:var(--danger);border:none;color:#fff;border-radius:4px;padding:4px 8px;margin-left:6px;cursor:pointer" onclick="removeFactureLine(${i})">✕</button>
+    </div>`;
+  });
+  box.innerHTML = html;
+  document.getElementById('facture-total').textContent = total.toFixed(2) + ' DZD';
+}
+
+function updateFacturePrice(i, v) { const n = parseFloat(v); if (!isNaN(n) && n >= 0) factureLines[i].sellPrice = n; saveLocal(); renderFactureLines(); }
+function updateFactureQty(i, v) { const n = parseInt(v); if (!isNaN(n) && n > 0) factureLines[i].qty = n; saveLocal(); renderFactureLines(); }
+function removeFactureLine(i) { factureLines.splice(i, 1); saveLocal(); renderFactureLines(); }
+
+function getFactureData() {
+  const clientId = document.getElementById('f-client-select').value;
+  const clientNew = document.getElementById('f-client-new').value.trim();
+  const clientPhone = document.getElementById('f-client-phone').value.trim();
+  let clientName = 'Client Comptoir';
+  if (clientNew) clientName = clientNew;
+  else if (clientId) { const c = customers.find(x => String(x.id) === String(clientId)); if (c) clientName = c.name; }
+  const total = factureLines.reduce((s, l) => s + l.sellPrice * l.qty, 0);
+  return {
+    id: 'F-' + Date.now(),
+    client: clientName,
+    clientId: clientId || null,
+    phone: clientPhone,
+    articles: factureLines.map(l => ({ code: l.code, name: l.name, qty: l.qty, sellPrice: l.sellPrice })),
+    total,
+    totalHT: total,
+    totalTTC: total,
+    date: new Date().toISOString(),
+    paymentMode: 'ESPECES'
+  };
+}
+
+/* ---------- ENREGISTREMENT FACTURE (ne vide pas la ligne) ---------- */
+async function saveFacture() {
+  if (factureLines.length === 0) { alert('Aucun article dans la facture.'); return; }
+  const facture = getFactureData();
+  let data = { version: 'SSK-POS-V7-FACTURES', sentAt: new Date().toISOString(), factures: [] };
+  try { const r = await fetch(FACTURES_PATH + '?t=' + Date.now()); if (r.ok) data = await r.json(); } catch (e) {}
+  if (!data.factures) data.factures = [];
+  data.factures.push(facture);
+  data.sentAt = new Date().toISOString();
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'SSK-FACTURES-MOBILE.json'; a.click(); URL.revokeObjectURL(url);
+  setStatus('✅ Facture enregistrée — fichier SSK-FACTURES-MOBILE.json téléchargé', 'ok');
+  setTimeout(() => setStatus('🟢 En attente...', 'info'), 3000);
+}
+
+/* ---------- ENVOI & SAUVEGARDE (vidange après export) ---------- */
+async function saveAndExportFacture() {
+  if (factureLines.length === 0) { alert('Aucun article dans la facture.'); return; }
+  await saveFacture();
+  factureLines = [];
+  saveLocal();
+  renderFactureLines();
+  setStatus('✅ Facture sauvegardée et exportée', 'ok');
+}
+
+/* ---------- PARTAGE MULTI-RÉSEAUX (FIX Messenger & Viber via clipboard) ---------- */
+function buildFactureText() {
+  const facture = getFactureData();
+  const shopName = localStorage.getItem('cfg_shop_name') || 'SSK SUPERETTE DZ';
+  let text = `${shopName}\n`;
+  text += `Facture N° ${facture.id}\n`;
+  text += `Client: ${facture.client}\n`;
+  text += `Date: ${new Date(facture.date).toLocaleString('fr-FR')}\n`;
+  text += `--------------------------------\n`;
+  facture.articles.forEach(a => { text += `${a.name} ×${a.qty} = ${(a.sellPrice * a.qty).toFixed(2)} DZD\n`; });
+  text += `--------------------------------\n`;
+  text += `TOTAL: ${facture.total.toFixed(2)} DZD\n\n`;
+  text += `Merci pour votre visite !`;
+  return text;
+}
+
+async function copyToClipboard(text) {
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch (e) { /* fallback ci-dessous */ }
+  // Fallback classique
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok;
+  } catch (e) { return false; }
+}
+
+async function sendFactureVia(network) {
+  if (factureLines.length === 0) { alert('Aucun article dans la facture.'); return; }
+
+  const text = buildFactureText();
+  const clientPhone = document.getElementById('f-client-phone').value.trim().replace(/[^0-9]/g, '');
+  const encodedText = encodeURIComponent(text);
+
+  // 1. Sauvegarde automatique + export du JSON avant envoi
+  await saveFacture();
+
+  // 2. Dispatch selon le réseau
+  switch (network) {
+    case 'whatsapp': {
+      let url;
+      if (clientPhone) {
+        const phoneIntl = clientPhone.startsWith('213') ? clientPhone : '213' + clientPhone.replace(/^0/, '');
+        url = 'https://wa.me/' + phoneIntl + '?text=' + encodedText;
+      } else {
+        url = 'https://wa.me/?text=' + encodedText;
+      }
+      window.open(url, '_blank');
+      setStatus('✅ Facture envoyée via WhatsApp', 'ok');
+      break;
+    }
+
+    case 'telegram': {
+      let url;
+      if (clientPhone) {
+        const phoneIntl = clientPhone.startsWith('+') ? clientPhone : '+213' + clientPhone.replace(/^0/, '');
+        // Telegram ne permet pas de préfixer le texte dans un chat direct, on ouvre le chat
+        url = 'https://t.me/' + phoneIntl.replace('+', '');
+      } else {
+        url = 'https://t.me/share/url?url=' + encodeURIComponent('Facture') + '&text=' + encodedText;
+      }
+      window.open(url, '_blank');
+      setStatus('✅ Facture envoyée via Telegram', 'ok');
+      break;
+    }
+
+    case 'messenger': {
+      // FIX: copier le texte dans le presse-papiers, puis ouvrir Messenger
+      const copied = await copyToClipboard(text);
+      if (copied) {
+        setStatus('📋 Texte copié — Ouverture de Messenger...', 'info');
+      } else {
+        setStatus('⚠️ Impossible de copier. Texte à coller manuellement.', 'error');
+      }
+      // Petit délai pour laisser le clipboard s'écrire
+      setTimeout(() => {
+        // Ouverture de Messenger (app native ou web)
+        // On tente d'abord l'app native, puis fallback web
+        const appUrl = 'fb-messenger://';
+        const webUrl = 'https://www.messenger.com/';
+        // On utilise un iframe caché pour éviter la navigation directe
+        const iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        iframe.src = appUrl;
+        document.body.appendChild(iframe);
+        // Fallback web après 1.5s si l'app n'a pas pris
+        setTimeout(() => {
+          document.body.removeChild(iframe);
+          window.open(webUrl, '_blank');
+        }, 1500);
+        setTimeout(() => {
+          if (copied) {
+            alert('✅ Facture copiée !\n\nMessenger est ouvert, collez le texte dans la conversation du client.');
+          }
+        }, 500);
+      }, 300);
+      break;
+    }
+
+    case 'viber': {
+      // FIX: copier le texte, puis ouvrir Viber
+      const copied = await copyToClipboard(text);
+      if (copied) {
+        setStatus('📋 Texte copié — Ouverture de Viber...', 'info');
+      } else {
+        setStatus('⚠️ Impossible de copier. Texte à coller manuellement.', 'error');
+      }
+      setTimeout(() => {
+        // Viber forward pour coller le texte
+        let viberUrl = 'viber://forward?text=' + encodedText;
+        if (clientPhone) {
+          const phoneIntl = clientPhone.startsWith('+') ? clientPhone : '+213' + clientPhone.replace(/^0/, '');
+          viberUrl = 'viber://chat?number=' + encodeURIComponent(phoneIntl);
+        }
+        // Essai app native
+        const iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        iframe.src = viberUrl;
+        document.body.appendChild(iframe);
+        setTimeout(() => {
+          document.body.removeChild(iframe);
+          // Fallback web
+          window.open('https://www.viber.com/', '_blank');
+        }, 1500);
+        setTimeout(() => {
+          if (copied) {
+            alert('✅ Facture copiée !\n\nViber est ouvert, collez le texte dans la conversation du client.');
+          }
+        }, 500);
+      }, 300);
+      break;
+    }
+  }
+}
+
+/* ---------- INIT ---------- */
+window.addEventListener('DOMContentLoaded', () => {
+  loadLocal();
+  renderProducts();
+  renderAchatList();
+  renderFactureLines();
+  renderFactureClientSelect();
+  if (products.length === 0) { loadLiveFile(); }
+  else { setStatus('🟢 ' + products.length + ' articles (cache local)', 'ok'); loadLiveFile(); }
+});
+</script>
+</body>
+</html>
